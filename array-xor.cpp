@@ -2,7 +2,6 @@
 using namespace std;
 
 using ll = long long;
-const int N_ADDICTS = 11;
 
 int main() {
     ios::sync_with_stdio(0);
