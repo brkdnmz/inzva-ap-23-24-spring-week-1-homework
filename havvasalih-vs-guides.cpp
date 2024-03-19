@@ -79,8 +79,6 @@ class Solver {
         This solution is an overkill to the current problem.
         However, it doesn't depend on the constraint on y_i, which makes it powerful that it's capable of handling
         larger values.
-
-        Failed to implement correctly :D
     */
     void sol2() {
         map<int, int> n_ranges_starting_at;
@@ -91,10 +89,17 @@ class Solver {
         int starting_point = -1;
         int n_ranges_covering = 0;
         vector<array<int, 2>> valid_diff_ranges;
+
+        // Here's a hint: a valid difficulty range starts and ends exactly at some endpoints of the given difficulty
+        // ranges.
         for (auto &[point, cnt] : n_ranges_starting_at) {
+            // Whenever the current point is valid, a new range of valid difficulties starts.
             if (n_ranges_covering < k && n_ranges_covering + cnt >= k) {
                 starting_point = point;
-            } else if (n_ranges_covering >= k && n_ranges_covering + cnt < k) {
+
+            }
+            // Whenever the current point is invalid, the rightmost range of valid difficulties ends.
+            else if (n_ranges_covering >= k && n_ranges_covering + cnt < k) {
                 valid_diff_ranges.push_back({starting_point, point - 1});
                 starting_point = -1;
             }
@@ -103,6 +108,8 @@ class Solver {
 
         // Add the last range if exists.
         if (starting_point != -1) {
+            // Notice that the rightmost point in n_ranges_starting_at is where ranges having the rightmost ending
+            // points end.
             valid_diff_ranges.push_back({starting_point, n_ranges_starting_at.rend()->second - 1});
         }
 
@@ -114,40 +121,34 @@ class Solver {
             total_range_len.push_back(total_range_len.back() + r - l + 1);
         }
 
-        const int inf = 1e9 + 1;
+        /*
+            For the cleanest code, say f(x) = Total valid length until x.
+            f(r) - f(l-1) is the answer for each query.
+
+            I've struggled quite a bit to directly calculate the length between l and r,
+            but it was the messiest code I've ever written in a while.
+            This turned out to be so much cleaner!
+        */
+        auto f = [&](int x) {
+            const int inf = 1e9 + 1;
+            // Want to find the first valid range [l1, r1] such that l1 <= x <= r1.
+            // Well, if it exists, the range after it starts after x.
+            // We can find that next range with upper_bound, and go back with -1.
+            int range_covering_x =
+                upper_bound(valid_diff_ranges.begin(), valid_diff_ranges.end(), array<int, 2>{x, inf}) -
+                valid_diff_ranges.begin() - 1;
+
+            // No range might cover x at all.
+            bool is_covered = range_covering_x != -1 && valid_diff_ranges[range_covering_x][0] <= x &&
+                              x <= valid_diff_ranges[range_covering_x][1];
+
+            // Note that the prefix sum array is 1-indexed.
+            return is_covered ? x - valid_diff_ranges[range_covering_x][0] + 1 + total_range_len[range_covering_x]
+                              : total_range_len[range_covering_x + 1];
+        };
 
         for (auto &[l, r] : queries) {
-            // Want to find first valid range [l1, r1] such that l1 <= l <= r1.
-            // Well, if it exists, the range after it starts after l. We can find that next range with upper_bound.
-            int range_covering_l =
-                upper_bound(valid_diff_ranges.begin(), valid_diff_ranges.end(), array<int, 2>{l, inf}) -
-                valid_diff_ranges.begin() - 1;
-
-            // Same logic as the previous.
-            int range_covering_r =
-                upper_bound(valid_diff_ranges.begin(), valid_diff_ranges.end(), array<int, 2>{r, inf}) -
-                valid_diff_ranges.begin() - 1;
-
-            // Handling a few cases...
-            if (r < valid_diff_ranges.front()[0] || valid_diff_ranges.back()[1] < l) {
-                cout << "0\n";
-            } else if (range_covering_l == range_covering_r) {
-                cout << min(r, valid_diff_ranges[range_covering_r][1]) - l + 1 << "\n";
-            } else {
-                // Add the subrange in the range covering l.
-                int ans = range_covering_l == -1 ? 0 : valid_diff_ranges[range_covering_l][1] - l + 1;
-
-                // Add the subrange in the range covering r.
-                ans += valid_diff_ranges[range_covering_r][1] < r ? 0 : r - valid_diff_ranges[range_covering_r][0] + 1;
-
-                // Add total range length in between, excluding the covering ranges.
-                // Prefix sum array is 1-indexed!
-                int first_range = range_covering_l == -1 ? 0 : range_covering_l + 1;
-                int last_range =
-                    valid_diff_ranges[range_covering_r][1] < r ? valid_diff_ranges.size() - 1 : range_covering_r - 1;
-                ans += total_range_len[last_range + 1] - total_range_len[first_range];
-                cout << ans << "\n";
-            }
+            cout << f(r) - f(l - 1) << "\n";
         }
     }
 };
